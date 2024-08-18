@@ -17,18 +17,16 @@ def select_pse(connection):
     response, sw1, sw2 = send_apdu(connection, select_pse_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
         return response
-    else:
-        print("Failed to select PSE")
-        return None
-
-def read_application_data(connection):
-    read_data_apdu = [0x80, 0xCA, 0x9F, 0x7F, 0x00]  # Example for reading data (get processing options)
-    response, sw1, sw2 = send_apdu(connection, read_data_apdu)
-    if sw1 == 0x90 and sw2 == 0x00:
-        return response
-    else:
-        print(f"Failed to read application data. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
-        return None
+    elif sw1 == 0x6A and sw2 == 0x82:
+        print("PSE AID not found. Trying different AID...")
+        # Try another PSE AID
+        alternate_pse_aid = [0x2F, 0x01]  # Example alternative PSE AID
+        select_alternate_pse_apdu = [0x00, 0xA4, 0x04, 0x00, len(alternate_pse_aid)] + alternate_pse_aid + [0x00]
+        response, sw1, sw2 = send_apdu(connection, select_alternate_pse_apdu)
+        if sw1 == 0x90 and sw2 == 0x00:
+            return response
+    print("Failed to select PSE")
+    return None
 
 def select_aid(connection, aid):
     select_aid_apdu = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid + [0x00]
