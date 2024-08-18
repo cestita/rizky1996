@@ -54,4 +54,5 @@ def format_emv():
 
 if __name__ == "__main__":
     # Langsung format ulang atau hapus data pada kartu EMV
-    print("Langsung memformat ulang kartu EMV dan meng
+    print("Langsung memformat ulang kartu EMV dan menghapus semua data...")
+    format_emv()
