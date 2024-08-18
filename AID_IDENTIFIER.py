@@ -43,9 +43,10 @@ def main():
         print(f"Error connecting to the card: {str(e)}")
         return
 
+    # APDU untuk SELECT AID (pilih aplikasi pada kartu)
     SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, 0x00]
 
-    response, sw1, sw2 = send_apdu(connection, SELECT_AID_APPU)
+    response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
 
     if sw1 == 0x6C:
         print(f"Correct length indicated by SW2: {sw2}. Retrying with the correct length.")
@@ -57,7 +58,4 @@ def main():
         aid_str, aid_description = identify_aid(response)
         print(f"AID: {aid_str} - {aid_description}")
     else:
-        print("Failed to read AID or no AID found.")
-
-if __name__ == "__main__":
-    main()
+        print("Failed to
