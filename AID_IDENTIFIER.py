@@ -1,7 +1,20 @@
 from smartcard.System import readers
 from smartcard.util import toHexString
 
-# Fungsi untuk mengirim perintah APDU dan menangani respons
+# Beberapa AID yang umum digunakan dalam EMV
+KNOWN_AIDS = {
+    "A0000000031010": "Visa Credit or Debit",
+    "A0000000041010": "MasterCard Credit or Debit",
+    "A00000002501": "American Express",
+    "A0000000651010": "Discover",
+    "A000000333010101": "JCB",
+    # Tambahkan lebih banyak AID jika diperlukan
+}
+
+def identify_aid(aid):
+    aid_str = toHexString(aid).replace(" ", "")
+    return KNOWN_AIDS.get(aid_str, "Unknown AID")
+
 def send_apdu(connection, apdu_command):
     try:
         response, sw1, sw2 = connection.transmit(apdu_command)
@@ -13,7 +26,6 @@ def send_apdu(connection, apdu_command):
         return None, None, None
 
 def main():
-    # Mendeteksi pembaca kartu
     r = readers()
     if len(r) == 0:
         print("No smart card readers detected.")
@@ -28,10 +40,8 @@ def main():
         print(f"Error connecting to the card: {str(e)}")
         return
 
-    # APDU untuk SELECT AID (pilih aplikasi pada kartu)
     SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, 0x00]
 
-    # Kirim perintah APDU dan periksa panjang yang benar jika perlu
     response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
 
     if sw1 == 0x6C:
@@ -41,7 +51,8 @@ def main():
 
     if sw1 == 0x90 and sw2 == 0x00:
         print("AID Read Successfully")
-        print("AID:", toHexString(response))
+        aid_identified = identify_aid(response)
+        print(f"AID: {toHexString(response)} - {aid_identified}")
     else:
         print("Failed to read AID or no AID found.")
 
