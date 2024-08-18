@@ -61,3 +61,5 @@ if __name__ == "__main__":
     
     print("Menghapus semua file...")
     delete_all_files()
+
+
