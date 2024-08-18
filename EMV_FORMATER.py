@@ -1,58 +1,53 @@
 from smartcard.System import readers
 from smartcard.util import toHexString
 
-# Pilih reader yang terhubung
-def select_reader():
+def send_apdu(connection, apdu_command):
+    try:
+        response, sw1, sw2 = connection.transmit(apdu_command)
+        print(f"APDU Sent: {toHexString(apdu_command)}")
+        print(f"Response: {toHexString(response)}, SW1: {hex(sw1)}, SW2: {hex(sw2)}")
+        return response, sw1, sw2
+    except Exception as e:
+        print(f"Error transmitting APDU: {str(e)}")
+        return None, None, None
+
+def select_application(connection, aid):
+    select_apdu = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid
+    response, sw1, sw2 = send_apdu(connection, select_apdu)
+    if sw1 == 0x90 and sw2 == 0x00:
+        print("Application selected successfully.")
+    else:
+        print(f"Failed to select application. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
+
+def format_application_data(connection):
+    # Example APDU command to delete data; adjust according to your specific application requirements
+    delete_data_apdu = [0x00, 0xE4, 0x00, 0x00, 0x00]  # This is an example and may not be valid for all cards
+    response, sw1, sw2 = send_apdu(connection, delete_data_apdu)
+    if sw1 == 0x90 and sw2 == 0x00:
+        print("Data formatted successfully.")
+    else:
+        print(f"Failed to format data. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
+
+def main():
     r = readers()
-    if not r:
-        print("No smart card readers available.")
-        return None
-    return r[0]
-
-# Kirim perintah APDU ke kartu
-def send_apdu(command, data=b''):
-    reader = select_reader()
-    if reader is None:
-        return None
+    if len(r) == 0:
+        print("No smart card readers detected.")
+        return
     
-    connection = reader.createConnection()
-    connection.connect()
-
-    # Kirim APDU
-    apdu_command = command + list(data)
-    response, sw1, sw2 = connection.transmit(apdu_command)
-    return response, sw1, sw2
-
-# Langsung memilih dan menghapus aplikasi berdasarkan AID tanpa memilih Master File
-def format_emv():
-    # Daftar beberapa AID umum yang bisa dicoba
-    aids = [
-        "A0000000031010",  # Visa
-        "A0000000041010",  # MasterCard
-        "A0000000250101",  # JCB
-        "A0000003330101",  # American Express
-        "A0000005271101"   # Discover
-    ]
+    print(f"Using reader: {r[0]}")
+    connection = r[0].createConnection()
     
-    for aid in aids:
-        print(f"Mencoba AID: {aid}")
+    try:
+        connection.connect()
+    except Exception as e:
+        print(f"Error connecting to the card: {str(e)}")
+        return
 
-        # Pilih Aplikasi dengan AID
-        select_application_command = [0x00, 0xA4, 0x04, 0x00, len(aid) // 2] + [int(aid[i:i+2], 16) for i in range(0, len(aid), 2)]
-        response, sw1, sw2 = send_apdu(select_application_command)
-        print(f"Select Application (AID: {aid}) Response:", toHexString(response))
-        print("Status Word:", hex(sw1 << 8 | sw2))
+    # Example AID for application
+    example_aid = [0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10]  # Adjust AID as needed
+    select_application(connection, example_aid)
 
-        if sw1 << 8 | sw2 == 0x9000:  # 0x9000 = Success
-            # Hapus File atau Aplikasi yang dipilih
-            delete_file_command = [0x00, 0xE4, 0x00, 0x00, 0x00]  # DELETE FILE (Contoh)
-            response, sw1, sw2 = send_apdu(delete_file_command)
-            print(f"Delete File (AID: {aid}) Response:", toHexString(response))
-            print("Status Word:", hex(sw1 << 8 | sw2))
-        else:
-            print(f"Gagal memilih aplikasi dengan AID {aid}.")
+    format_application_data(connection)
 
 if __name__ == "__main__":
-    # Langsung format ulang atau hapus data pada kartu EMV
-    print("Langsung memformat ulang kartu EMV dan menghapus semua data...")
-    format_emv()
+    main()
