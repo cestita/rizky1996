@@ -3,7 +3,7 @@ from smartcard.util import toHexString
 
 # Beberapa AID yang umum digunakan dalam EMV
 KNOWN_AIDS = {
-    "A0000000031010": "Visa Credit or Debit",
+    "A0000000031010": "Visa Credit or Debit",  # Pastikan AID ini ada dan benar
     "A0000000041010": "MasterCard Credit or Debit",
     "A00000002501": "American Express",
     "A0000000651010": "Discover",
