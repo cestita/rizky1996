@@ -18,17 +18,15 @@ def send_apdu(command, data=b''):
     connection = reader.createConnection()
     connection.connect()
 
-    # Kirim APDU
-    apdu_command = command + data
+    # Konversi command ke bytes dan gabungkan dengan data
+    apdu_command = bytes(command) + data
     response, sw1, sw2 = connection.transmit(apdu_command)
     return response, sw1, sw2
 
 # Format atau hapus file di dalam chip EMV
 def format_emv():
     # Contoh perintah APDU untuk format
-    # Ini adalah perintah umum dan mungkin tidak sesuai dengan spesifikasi EMV Anda
-    # Pastikan untuk menggunakan perintah yang benar untuk perangkat Anda
-    # Misalnya, perintah SELECT FILE diikuti dengan perintah DELETE FILE
+    # Perintah ini adalah contoh dan mungkin tidak sesuai dengan spesifikasi EMV Anda
     select_file_command = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # SELECT FILE (Contoh)
     response, sw1, sw2 = send_apdu(select_file_command)
     print("Select File Response:", toHexString(response))
@@ -41,8 +39,6 @@ def format_emv():
 
 def delete_all_files():
     # Contoh perintah APDU untuk menghapus semua file
-    # Biasanya, Anda perlu mengetahui struktur file dan direktori kartu EMV
-    # Perintah di bawah ini adalah contoh umum
     select_command = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # SELECT FILE (Contoh)
     response, sw1, sw2 = send_apdu(select_command)
     print("Select File Response:", toHexString(response))
@@ -61,5 +57,3 @@ if __name__ == "__main__":
     
     print("Menghapus semua file...")
     delete_all_files()
-
-
