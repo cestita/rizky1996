@@ -1,79 +1,83 @@
-import sys
 from smartcard.System import readers
-from smartcard.util import toHexString, toBytes
+from smartcard.util import toHexString
+
+def send_apdu(connection, apdu_command):
+    try:
+        response, sw1, sw2 = connection.transmit(apdu_command)
+        print(f"APDU Sent: {toHexString(apdu_command)}")
+        print(f"Response: {toHexString(response)}, SW1: {hex(sw1)}, SW2: {hex(sw2)}")
+        return response, sw1, sw2
+    except Exception as e:
+        print(f"Error transmitting APDU: {str(e)}")
+        return None, None, None
 
 def get_atr(connection):
     atr = connection.getATR()
     print(f"ATR: {toHexString(atr)}")
-    return atr
 
-def select_application(connection):
-    # AID untuk aplikasi EMV (contoh AID untuk aplikasi pembayaran umum)
-    SELECT = [0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x00]
-    data, sw1, sw2 = connection.transmit(SELECT)
+def select_application(connection, aid):
+    select_apdu = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid
+    response, sw1, sw2 = send_apdu(connection, select_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
         print("Application selected successfully.")
     else:
-        print(f"Failed to select application: {sw1:02X} {sw2:02X}")
-    return data
+        print(f"Failed to select application. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
 
-def get_apdu_response(connection, apdu_command):
-    response, sw1, sw2 = connection.transmit(apdu_command)
-    print(f"APDU Command: {toHexString(apdu_command)}")
-    print(f"Response: {toHexString(response)}")
-    print(f"Status Word: {sw1:02X} {sw2:02X}")
-    return response, sw1, sw2
-
-def read_track_1_data(connection):
-    # Perintah untuk membaca Track 1 data
-    GET_TRACK_1 = [0x00, 0xB2, 0x01, 0x0C, 0x00]
-    response, sw1, sw2 = get_apdu_response(connection, GET_TRACK_1)
+def read_data(connection):
+    # Example APDU command to read file; adjust according to your specific application requirements
+    read_apdu = [0x00, 0xB0, 0x00, 0x00, 0x00]  # Example command for reading
+    response, sw1, sw2 = send_apdu(connection, read_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
-        print("Track 1 Data:")
-        print(response)
+        print("Data read successfully.")
+        print(f"Data: {toHexString(response)}")
     else:
-        print(f"Failed to read Track 1 Data: {sw1:02X} {sw2:02X}")
+        print(f"Failed to read data. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
 
-def read_track_2_data(connection):
-    # Perintah untuk membaca Track 2 data
-    GET_TRACK_2 = [0x00, 0xB2, 0x02, 0x0C, 0x00]
-    response, sw1, sw2 = get_apdu_response(connection, GET_TRACK_2)
+def read_track2(connection):
+    # Assuming track data can be read with specific APDU
+    # This is an example; track data reading method might differ
+    track2_apdu = [0x00, 0xB2, 0x00, 0x00, 0x00]  # Example command for reading Track 2
+    response, sw1, sw2 = send_apdu(connection, track2_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
-        print("Track 2 Data:")
-        print(response)
+        print("Track 2 data read successfully.")
+        print(f"Track 2 Data: {toHexString(response)}")
     else:
-        print(f"Failed to read Track 2 Data: {sw1:02X} {sw2:02X}")
+        print(f"Failed to read Track 2 data. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
 
-def read_aqr(connection):
-    # Perintah untuk mengambil Application Cryptogram (AC)
-    GET_AQR = [0x80, 0xAE, 0x00, 0x00, 0x00]
-    response, sw1, sw2 = get_apdu_response(connection, GET_AQR)
+def extract_aid_and_application(connection):
+    # Example APDU command to get AID from the card
+    aid_apdu = [0x00, 0xA4, 0x00, 0x00, 0x00]  # Example command to get AID
+    response, sw1, sw2 = send_apdu(connection, aid_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
-        print("AQR (Application Cryptogram Request):")
-        print(response)
+        print("AID read successfully.")
+        print(f"AID: {toHexString(response)}")
     else:
-        print(f"Failed to get AQR: {sw1:02X} {sw2:02X}")
+        print(f"Failed to read AID. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
 
 def main():
-    # Mendapatkan daftar pembaca kartu
     r = readers()
     if len(r) == 0:
-        print("No smart card readers found.")
-        sys.exit()
+        print("No smart card readers detected.")
+        return
+    
+    print(f"Using reader: {r[0]}")
+    connection = r[0].createConnection()
+    
+    try:
+        connection.connect()
+    except Exception as e:
+        print(f"Error connecting to the card: {str(e)}")
+        return
 
-    print("Available readers:", r)
+    get_atr(connection)
 
-    reader = r[0]  # Menggunakan pembaca pertama
-    connection = reader.createConnection()
-    connection.connect()
+    # Example AID for application; adjust as needed
+    example_aid = [0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10]
+    select_application(connection, example_aid)
 
-    atr = get_atr(connection)
-    application_data = select_application(connection)
-
-    # Membaca informasi Track 1, Track 2, dan AQR
-    read_track_1_data(connection)
-    read_track_2_data(connection)
-    read_aqr(connection)
+    read_data(connection)
+    read_track2(connection)
+    extract_aid_and_application(connection)
 
 if __name__ == "__main__":
     main()
