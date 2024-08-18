@@ -62,7 +62,7 @@ def main():
     if sw1 == 0x6C:
         print(f"Correct length indicated by SW2: {sw2}. Retrying with the correct length.")
         SELECT_AID_APDU[4] = sw2
-        response, sw1, sw2 = send_apdu(connection, SELECT_AID_APPU)
+        response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)  # Perbaikan pada baris ini
 
     if sw1 == 0x90 and sw2 == 0x00:
         print("AID Read Successfully")
