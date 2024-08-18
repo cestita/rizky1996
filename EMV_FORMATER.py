@@ -23,43 +23,44 @@ def send_apdu(command, data=b''):
     response, sw1, sw2 = connection.transmit(apdu_command)
     return response, sw1, sw2
 
-# Hapus atau format semua data di kartu EMV
+# Format atau hapus semua data di kartu EMV
 def format_emv():
-    # Langkah 1: Pilih File Aplikasi atau Master File
-    # Ini adalah contoh perintah untuk memilih Master File atau Application Directory
-    select_file_command = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # SELECT MASTER FILE
-    response, sw1, sw2 = send_apdu(select_file_command)
-    print("Select File Response:", toHexString(response))
+    # Langkah 1: Pilih Master File (MF)
+    select_master_file_command = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # SELECT MASTER FILE
+    response, sw1, sw2 = send_apdu(select_master_file_command)
+    print("Select Master File Response:", toHexString(response))
     print("Status Word:", hex(sw1 << 8 | sw2))
-    
+
     if sw1 << 8 | sw2 != 0x9000:  # 0x9000 = Success
-        print("Gagal memilih file master.")
+        print("Gagal memilih Master File.")
         return
 
-    # Langkah 2: Hapus Aplikasi atau File yang Ditemukan
-    # Ini adalah contoh perintah untuk menghapus file atau aplikasi
-    # Harap ganti dengan perintah yang sesuai untuk file atau aplikasi yang ingin dihapus
-    delete_file_command = [0x00, 0xE4, 0x00, 0x00, 0x00]  # DELETE FILE (Contoh, sesuaikan jika perlu)
-    response, sw1, sw2 = send_apdu(delete_file_command)
-    print("Delete File Response:", toHexString(response))
-    print("Status Word:", hex(sw1 << 8 | sw2))
+    # Daftar beberapa AID umum yang bisa dicoba
+    aids = [
+        "A0000000031010",  # Visa
+        "A0000000041010",  # MasterCard
+        "A0000000250101",  # JCB
+        "A0000003330101",  # American Express
+        "A0000005271101"   # Discover
+    ]
     
-    if sw1 << 8 | sw2 != 0x9000:  # 0x9000 = Success
-        print("Gagal menghapus file.")
-        return
+    for aid in aids:
+        print(f"Mencoba AID: {aid}")
 
-    # Langkah 3: Pilih dan hapus direktori atau aplikasi lain jika perlu
-    # Contoh untuk memilih dan menghapus direktori atau aplikasi lain
-    # Sesuaikan dengan AID atau DF yang benar
-    select_command = [0x00, 0xA4, 0x00, 0x00, 0x02, 0xDF, 0x01]  # Ganti dengan AID atau DF yang sesuai
-    response, sw1, sw2 = send_apdu(select_command)
-    print("Select Application Response:", toHexString(response))
-    print("Status Word:", hex(sw1 << 8 | sw2))
+        # Langkah 2: Pilih Aplikasi dengan AID
+        select_application_command = [0x00, 0xA4, 0x04, 0x00, len(aid) // 2] + [int(aid[i:i+2], 16) for i in range(0, len(aid), 2)]
+        response, sw1, sw2 = send_apdu(select_application_command)
+        print(f"Select Application (AID: {aid}) Response:", toHexString(response))
+        print("Status Word:", hex(sw1 << 8 | sw2))
 
-    delete_command = [0x00, 0xE4, 0x00, 0x00, 0x00]  # Ganti dengan perintah hapus yang sesuai
-    response, sw1, sw2 = send_apdu(delete_command)
-    print("Delete Application Response:", toHexString(response))
-    print("Status Word:", hex(sw1 << 8 | sw2))
+        if sw1 << 8 | sw2 == 0x9000:  # 0x9000 = Success
+            # Langkah 3: Hapus File atau Aplikasi yang dipilih
+            delete_file_command = [0x00, 0xE4, 0x00, 0x00, 0x00]  # DELETE FILE (Contoh)
+            response, sw1, sw2 = send_apdu(delete_file_command)
+            print(f"Delete File (AID: {aid}) Response:", toHexString(response))
+            print("Status Word:", hex(sw1 << 8 | sw2))
+        else:
+            print(f"Gagal memilih aplikasi dengan AID {aid}.")
 
 if __name__ == "__main__":
     # Format ulang atau hapus semua data pada kartu EMV
