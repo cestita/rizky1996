@@ -20,9 +20,9 @@ def select_application(connection, aid):
         print(f"Failed to select application. SW1: {hex(sw1)}, SW2: {hex(sw2)}")
 
 def format_application_data(connection):
-    # Example APDU command to delete data; adjust according to your specific application requirements
-    delete_data_apdu = [0x00, 0xE4, 0x00, 0x00, 0x00]  # This is an example and may not be valid for all cards
-    response, sw1, sw2 = send_apdu(connection, delete_data_apdu)
+    # Example APDU command to format data; adjust according to your specific application requirements
+    format_apdu = [0x00, 0xE4, 0x00, 0x00, 0x00]  # This is an example and may not be valid for all cards
+    response, sw1, sw2 = send_apdu(connection, format_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
         print("Data formatted successfully.")
     else:
