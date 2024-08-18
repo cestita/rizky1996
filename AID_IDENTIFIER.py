@@ -12,8 +12,11 @@ KNOWN_AIDS = {
 }
 
 def identify_aid(aid):
+    # Mengubah AID ke format string
     aid_str = toHexString(aid).replace(" ", "")
-    return KNOWN_AIDS.get(aid_str, "Unknown AID")
+    # Mencari AID dalam daftar yang diketahui
+    description = KNOWN_AIDS.get(aid_str, "Unknown AID")
+    return aid_str, description
 
 def send_apdu(connection, apdu_command):
     try:
@@ -42,7 +45,7 @@ def main():
 
     SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, 0x00]
 
-    response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
+    response, sw1, sw2 = send_apdu(connection, SELECT_AID_APPU)
 
     if sw1 == 0x6C:
         print(f"Correct length indicated by SW2: {sw2}. Retrying with the correct length.")
@@ -51,8 +54,8 @@ def main():
 
     if sw1 == 0x90 and sw2 == 0x00:
         print("AID Read Successfully")
-        aid_identified = identify_aid(response)
-        print(f"AID: {toHexString(response)} - {aid_identified}")
+        aid_str, aid_description = identify_aid(response)
+        print(f"AID: {aid_str} - {aid_description}")
     else:
         print("Failed to read AID or no AID found.")
 
