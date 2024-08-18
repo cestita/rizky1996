@@ -3,7 +3,7 @@ from smartcard.util import toHexString
 
 # Beberapa AID yang umum digunakan dalam EMV
 KNOWN_AIDS = {
-    "A0000000031010": "Visa Credit or Debit",  # Pastikan AID ini ada dan benar
+    "A0000000031010": "Visa Credit or Debit",
     "A0000000041010": "MasterCard Credit or Debit",
     "A00000002501": "American Express",
     "A0000000651010": "Discover",
@@ -28,6 +28,17 @@ def send_apdu(connection, apdu_command):
         print(f"Error transmitting APDU: {str(e)}")
         return None, None, None
 
+def extract_aid_from_response(response):
+    # Mencari tag '84' yang menunjukkan awal dari AID
+    try:
+        index = response.index(0x84)
+        length = response[index + 1]
+        aid = response[index + 2:index + 2 + length]
+        return aid
+    except ValueError:
+        print("Failed to find AID in the response.")
+        return None
+
 def main():
     r = readers()
     if len(r) == 0:
@@ -51,12 +62,16 @@ def main():
     if sw1 == 0x6C:
         print(f"Correct length indicated by SW2: {sw2}. Retrying with the correct length.")
         SELECT_AID_APDU[4] = sw2
-        response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
+        response, sw1, sw2 = send_apdu(connection, SELECT_AID_APPU)
 
     if sw1 == 0x90 and sw2 == 0x00:
         print("AID Read Successfully")
-        aid_str, aid_description = identify_aid(response)
-        print(f"AID: {aid_str} - {aid_description}")
+        aid = extract_aid_from_response(response)
+        if aid:
+            aid_str, aid_description = identify_aid(aid)
+            print(f"AID: {aid_str} - {aid_description}")
+        else:
+            print("AID not found in the response.")
     else:
         print("Failed to read AID or no AID found.")
 
