@@ -1,5 +1,5 @@
 from smartcard.System import readers
-from smartcard.util import toHexString
+from smartcard.util import toHexString, toBytes
 
 # Beberapa AID yang umum digunakan dalam EMV
 KNOWN_AIDS = {
@@ -11,32 +11,51 @@ KNOWN_AIDS = {
     # Tambahkan lebih banyak AID jika diperlukan
 }
 
-def identify_aid(aid):
-    # Mengubah AID ke format string
-    aid_str = toHexString(aid).replace(" ", "")
-    # Mencari AID dalam daftar yang diketahui
-    description = KNOWN_AIDS.get(aid_str, "Unknown AID")
-    return aid_str, description
-
 def send_apdu(connection, apdu_command):
     try:
         response, sw1, sw2 = connection.transmit(apdu_command)
         print(f"APDU Sent: {toHexString(apdu_command)}")
-        print(f"Response: {toHexString(response)}, SW1: {hex(sw1)}, SW2: {hex(sw2)}")
+        print(f"Response: {toHexString(response)}, SW1: {hex(sw1)}, SW2: {hex(sw2)}\n")
         return response, sw1, sw2
     except Exception as e:
         print(f"Error transmitting APDU: {str(e)}")
         return None, None, None
 
-def extract_aid_from_response(response):
-    # Mencari tag '84' yang menunjukkan awal dari AID
-    try:
-        index = response.index(0x84)
-        length = response[index + 1]
-        aid = response[index + 2:index + 2 + length]
-        return aid
-    except ValueError:
-        print("Failed to find AID in the response.")
+def select_pse(connection):
+    # SELECT 1PAY.SYS.DDF01
+    pse_name = '1PAY.SYS.DDF01'
+    pse_select_apdu = [0x00, 0xA4, 0x04, 0x00, len(pse_name)] + list(pse_name.encode('ascii')) + [0x00]
+    response, sw1, sw2 = send_apdu(connection, pse_select_apdu)
+    if sw1 == 0x90 and sw2 == 0x00:
+        return response
+    else:
+        # Jika gagal, coba SELECT 2PAY.SYS.DDF01
+        pse_name = '2PAY.SYS.DDF01'
+        pse_select_apdu = [0x00, 0xA4, 0x04, 0x00, len(pse_name)] + list(pse_name.encode('ascii')) + [0x00]
+        response, sw1, sw2 = send_apdu(connection, pse_select_apdu)
+        if sw1 == 0x90 and sw2 == 0x00:
+            return response
+    return None
+
+def parse_fci(response):
+    aids = []
+    i = 0
+    while i < len(response):
+        if response[i] == 0x4F:  # Tag '4F' indicates AID
+            length = response[i+1]
+            aid = response[i+2:i+2+length]
+            aids.append(aid)
+            i += 2 + length
+        else:
+            i += 1
+    return aids
+
+def select_aid(connection, aid):
+    select_aid_apdu = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid + [0x00]
+    response, sw1, sw2 = send_apdu(connection, select_aid_apdu)
+    if sw1 == 0x90 and sw2 == 0x00:
+        return response
+    else:
         return None
 
 def main():
@@ -54,26 +73,33 @@ def main():
         print(f"Error connecting to the card: {str(e)}")
         return
 
-    # APDU untuk SELECT AID (pilih aplikasi pada kartu)
-    SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, 0x00]
+    # Step 1: Select PSE
+    pse_response = select_pse(connection)
+    if not pse_response:
+        print("Failed to select PSE.")
+        return
 
-    response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
+    # Step 2: Parse FCI to get list of AIDs
+    aids = parse_fci(pse_response)
+    if not aids:
+        print("No AIDs found in PSE.")
+        return
 
-    if sw1 == 0x6C:
-        print(f"Correct length indicated by SW2: {sw2}. Retrying with the correct length.")
-        SELECT_AID_APDU[4] = sw2
-        response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)  # Perbaikan pada baris ini
+    print("AIDs found:")
+    for aid in aids:
+        aid_str = toHexString(aid).replace(" ", "")
+        description = KNOWN_AIDS.get(aid_str, "Unknown AID")
+        print(f"AID: {aid_str} - {description}")
 
-    if sw1 == 0x90 and sw2 == 0x00:
-        print("AID Read Successfully")
-        aid = extract_aid_from_response(response)
-        if aid:
-            aid_str, aid_description = identify_aid(aid)
-            print(f"AID: {aid_str} - {aid_description}")
+    # Step 3: Select each AID and retrieve application data
+    for aid in aids:
+        print(f"\nSelecting AID: {toHexString(aid).replace(' ', '')}")
+        app_response = select_aid(connection, aid)
+        if app_response:
+            print(f"Application data for AID {toHexString(aid).replace(' ', '')}:")
+            print(toHexString(app_response))
         else:
-            print("AID not found in the response.")
-    else:
-        print("Failed to read AID or no AID found.")
+            print(f"Failed to select AID {toHexString(aid).replace(' ', '')}")
 
 if __name__ == "__main__":
     main()
