@@ -1,14 +1,12 @@
 from smartcard.System import readers
-from smartcard.util import toHexString, toBytes
+from smartcard.util import toHexString
 
-# Beberapa AID yang umum digunakan dalam EMV
 KNOWN_AIDS = {
     "A0000000031010": "Visa Credit or Debit",
     "A0000000041010": "MasterCard Credit or Debit",
     "A00000002501": "American Express",
     "A0000000651010": "Discover",
     "A000000333010101": "JCB",
-    # Tambahkan lebih banyak AID jika diperlukan
 }
 
 def send_apdu(connection, apdu_command):
@@ -21,41 +19,13 @@ def send_apdu(connection, apdu_command):
         print(f"Error transmitting APDU: {str(e)}")
         return None, None, None
 
-def select_pse(connection):
-    # SELECT 1PAY.SYS.DDF01
-    pse_name = '1PAY.SYS.DDF01'
-    pse_select_apdu = [0x00, 0xA4, 0x04, 0x00, len(pse_name)] + list(pse_name.encode('ascii')) + [0x00]
-    response, sw1, sw2 = send_apdu(connection, pse_select_apdu)
-    if sw1 == 0x90 and sw2 == 0x00:
-        return response
-    else:
-        # Jika gagal, coba SELECT 2PAY.SYS.DDF01
-        pse_name = '2PAY.SYS.DDF01'
-        pse_select_apdu = [0x00, 0xA4, 0x04, 0x00, len(pse_name)] + list(pse_name.encode('ascii')) + [0x00]
-        response, sw1, sw2 = send_apdu(connection, pse_select_apdu)
-        if sw1 == 0x90 and sw2 == 0x00:
-            return response
-    return None
-
-def parse_fci(response):
-    aids = []
-    i = 0
-    while i < len(response):
-        if response[i] == 0x4F:  # Tag '4F' indicates AID
-            length = response[i+1]
-            aid = response[i+2:i+2+length]
-            aids.append(aid)
-            i += 2 + length
-        else:
-            i += 1
-    return aids
-
 def select_aid(connection, aid):
     select_aid_apdu = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid + [0x00]
     response, sw1, sw2 = send_apdu(connection, select_aid_apdu)
     if sw1 == 0x90 and sw2 == 0x00:
         return response
     else:
+        print(f"Failed to select AID: {toHexString(aid)}")
         return None
 
 def main():
@@ -73,33 +43,27 @@ def main():
         print(f"Error connecting to the card: {str(e)}")
         return
 
-    # Step 1: Select PSE
-    pse_response = select_pse(connection)
-    if not pse_response:
-        print("Failed to select PSE.")
-        return
+    # AID yang diketahui
+    aids_to_try = [
+        [0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10],  # Visa
+        [0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10],  # MasterCard
+        [0xA0, 0x00, 0x00, 0x00, 0x25, 0x01],        # American Express
+        [0xA0, 0x00, 0x00, 0x00, 0x65, 0x10, 0x10],  # Discover
+        [0xA0, 0x00, 0x00, 0x33, 0x01, 0x01, 0x01],  # JCB
+    ]
 
-    # Step 2: Parse FCI to get list of AIDs
-    aids = parse_fci(pse_response)
-    if not aids:
-        print("No AIDs found in PSE.")
-        return
-
-    print("AIDs found:")
-    for aid in aids:
-        aid_str = toHexString(aid).replace(" ", "")
-        description = KNOWN_AIDS.get(aid_str, "Unknown AID")
-        print(f"AID: {aid_str} - {description}")
-
-    # Step 3: Select each AID and retrieve application data
-    for aid in aids:
-        print(f"\nSelecting AID: {toHexString(aid).replace(' ', '')}")
+    for aid in aids_to_try:
+        print(f"\nAttempting to select AID: {toHexString(aid).replace(' ', '')}")
         app_response = select_aid(connection, aid)
         if app_response:
-            print(f"Application data for AID {toHexString(aid).replace(' ', '')}:")
+            aid_str = toHexString(aid).replace(' ', '')
+            description = KNOWN_AIDS.get(aid_str, "Unknown AID")
+            print(f"Selected AID: {aid_str} - {description}")
+            print(f"Application data for AID {aid_str}:")
             print(toHexString(app_response))
+            break  # Stop after the first successful AID selection
         else:
-            print(f"Failed to select AID {toHexString(aid).replace(' ', '')}")
+            print(f"Failed to select AID: {toHexString(aid).replace(' ', '')}")
 
 if __name__ == "__main__":
     main()
