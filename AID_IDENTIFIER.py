@@ -58,4 +58,7 @@ def main():
         aid_str, aid_description = identify_aid(response)
         print(f"AID: {aid_str} - {aid_description}")
     else:
-        print("Failed to
+        print("Failed to read AID or no AID found.")
+
+if __name__ == "__main__":
+    main()
