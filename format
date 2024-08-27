@@ -21,7 +21,8 @@ if sw1 == 0x61:
 
     # Setelah mendapatkan respons lengkap, lanjutkan ke perintah DELETE jika SELECT berhasil
     if sw1 == 0x90 and sw2 == 0x00:
-        DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]
+        # Coba format lain untuk DELETE FILE
+        DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # Contoh untuk file ID '3F00'
         response, sw1, sw2 = connection.transmit(DELETE_FILE_APDU)
         print(f"DELETE FILE Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
     else:
