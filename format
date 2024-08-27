@@ -13,12 +13,12 @@ def get_response(connection, length):
     GET_RESPONSE = [0x00, 0xC0, 0x00, 0x00, length]
     response, sw1, sw2 = connection.transmit(GET_RESPONSE)
     print(f"GET RESPONSE: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
-    return sw1, sw2
+    return sw1, sw2, response
 
 def check_file_support(response):
     """Check if the card supports file deletion based on the response."""
-    # Analyze response to determine support
-    if b'9F7F' in response:  # Example check, modify based on actual response structure
+    # Example check; modify based on actual response structure
+    if b'9F7F' in response:
         print("Card supports file operations.")
         return True
     else:
@@ -46,10 +46,9 @@ def main():
 
     if sw1 == 0x61:
         # Dapatkan data tambahan
-        sw1, sw2 = get_response(connection, sw2)
+        sw1, sw2, response = get_response(connection, sw2)
         if sw1 == 0x90 and sw2 == 0x00:
             # Cek dukungan file
-            response = connection.transmit([0x00, 0xB2, 0x01, 0x0C, 0x00])[0]
             if check_file_support(response):
                 # Coba hapus file
                 FILE_ID = [0x3F, 0x00]  # Contoh File ID, sesuaikan dengan file yang ingin dihapus
