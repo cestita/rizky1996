@@ -10,6 +10,9 @@ SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, len(AID)] + AID
 # APDU command to delete a file (example)
 DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # Replace with correct P1 P2 and file ID if known
 
+# Command GET RESPONSE
+GET_RESPONSE_APDU = [0x00, 0xC0, 0x00, 0x00]  # GET RESPONSE command skeleton
+
 def send_apdu(connection, apdu):
     try:
         response, sw1, sw2 = connection.transmit(apdu)
@@ -18,6 +21,11 @@ def send_apdu(connection, apdu):
     except Exception as e:
         print(f"Error transmitting APDU: {str(e)}")
         return None, None, None
+
+def get_response(connection, length):
+    apdu = GET_RESPONSE_APDU + [length]
+    response, sw1, sw2 = send_apdu(connection, apdu)
+    return response, sw1, sw2
 
 def delete_files(connection):
     print("Attempting to delete files on the card...")
