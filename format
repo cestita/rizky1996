@@ -13,10 +13,18 @@ SELECT_AID = [0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x06, 0x02, 0x10, 
 response, sw1, sw2 = connection.transmit(SELECT_AID)
 print(f"SELECT AID Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
 
-# Jika SELECT berhasil, kirim perintah DELETE
-if sw1 == 0x90 and sw2 == 0x00:
-    DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]
-    response, sw1, sw2 = connection.transmit(DELETE_FILE_APDU)
-    print(f"DELETE FILE Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+# Jika respons adalah 61xx, kirim perintah GET RESPONSE untuk mendapatkan data lengkap
+if sw1 == 0x61:
+    GET_RESPONSE = [0x00, 0xC0, 0x00, 0x00, sw2]  # sw2 adalah panjang data yang tersedia
+    response, sw1, sw2 = connection.transmit(GET_RESPONSE)
+    print(f"GET RESPONSE: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+
+    # Setelah mendapatkan respons lengkap, lanjutkan ke perintah DELETE jika SELECT berhasil
+    if sw1 == 0x90 and sw2 == 0x00:
+        DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]
+        response, sw1, sw2 = connection.transmit(DELETE_FILE_APDU)
+        print(f"DELETE FILE Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+    else:
+        print("Failed to SELECT AID, cannot proceed to DELETE.")
 else:
     print("Failed to SELECT AID, cannot proceed to DELETE.")
