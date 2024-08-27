@@ -6,6 +6,8 @@ AID = [0xA0, 0x00, 0x00, 0x06, 0x02, 0x10, 0x10]  # AID: A0000006021010
 
 # APDU command to select application by AID
 SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, len(AID)] + AID
+# Command GET RESPONSE
+GET_RESPONSE_APDU = [0x00, 0xC0, 0x00, 0x00]  # GET RESPONSE command skeleton
 
 def send_apdu(connection, apdu):
     try:
@@ -16,13 +18,21 @@ def send_apdu(connection, apdu):
         print(f"Error transmitting APDU: {str(e)}")
         return None, None, None
 
+def get_response(connection, length):
+    apdu = GET_RESPONSE_APDU + [length]
+    response, sw1, sw2 = send_apdu(connection, apdu)
+    return response, sw1, sw2
+
 def select_application_by_aid(connection):
     print(f"Selecting application using AID: {toHexString(AID)}")
     response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
     
     if sw1 == 0x90 and sw2 == 0x00:
         print("Application selected successfully")
-        # Lakukan operasi lanjutan di sini jika diperlukan
+    elif sw1 == 0x61:
+        print(f"More data available: {sw2} bytes")
+        response, sw1, sw2 = get_response(connection, sw2)
+        print(f"GET RESPONSE: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
     elif sw1 == 0x6A and sw2 == 0x82:
         print("File or application not found")
     else:
