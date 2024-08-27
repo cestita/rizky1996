@@ -7,8 +7,11 @@ AID = [0xA0, 0x00, 0x00, 0x06, 0x02, 0x10, 0x10]  # AID: A0000006021010
 # APDU command to select application by AID
 SELECT_AID_APDU = [0x00, 0xA4, 0x04, 0x00, len(AID)] + AID
 
-# APDU command to delete a file (example)
-DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # Replace with correct P1 P2 and file ID if known
+# Contoh APDU command untuk DELETE FILE (ganti P1 P2 sesuai ID file)
+DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # Ganti dengan ID file yang benar jika diketahui
+
+# Contoh APDU command untuk CREATE FILE (jika ingin membuat file baru setelah penghapusan)
+CREATE_FILE_APDU = [0x00, 0xE0, 0x00, 0x00, 0x0F] + [0x3F, 0x00]  # Contoh, ganti sesuai dengan spesifikasi file yang diinginkan
 
 # Command GET RESPONSE
 GET_RESPONSE_APDU = [0x00, 0xC0, 0x00, 0x00]  # GET RESPONSE command skeleton
@@ -39,6 +42,18 @@ def delete_files(connection):
     else:
         print(f"Failed to delete file: SW1={sw1:02X}, SW2={sw2:02X}")
 
+def create_file(connection):
+    print("Attempting to create a new file on the card...")
+    response, sw1, sw2 = send_apdu(connection, CREATE_FILE_APDU)
+    if sw1 == 0x90 and sw2 == 0x00:
+        print("File created successfully")
+    elif sw1 == 0x69 and sw2 == 0x82:
+        print("Security status not satisfied, creation failed")
+    elif sw1 == 0x6A and sw2 == 0x82:
+        print("File or application not found")
+    else:
+        print(f"Failed to create file: SW1={sw1:02X}, SW2={sw2:02X}")
+
 def select_application_by_aid(connection):
     print(f"Selecting application using AID: {toHexString(AID)}")
     response, sw1, sw2 = send_apdu(connection, SELECT_AID_APDU)
@@ -46,6 +61,8 @@ def select_application_by_aid(connection):
     if sw1 == 0x90 and sw2 == 0x00:
         print("Application selected successfully")
         delete_files(connection)  # Try to delete files after selecting application
+        # Optionally create a new file
+        create_file(connection)
     elif sw1 == 0x61:
         print(f"More data available: {sw2} bytes")
         response, sw1, sw2 = get_response(connection, sw2)
