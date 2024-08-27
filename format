@@ -1,0 +1,19 @@
+from smartcard.System import readers
+from smartcard.util import toHexString
+
+# Pilih reader dan kartu
+r = readers()[0]
+connection = r.createConnection()
+connection.connect()
+
+# Contoh perintah APDU untuk menghapus file
+DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]
+
+# Kirim perintah
+def send_apdu(connection, apdu):
+    response, sw1, sw2 = connection.transmit(apdu)
+    return response, sw1, sw2
+
+# Menghapus file
+response, sw1, sw2 = send_apdu(connection, DELETE_FILE_APDU)
+print(f"Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
