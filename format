@@ -1,31 +1,69 @@
 from smartcard.System import readers
 from smartcard.util import toHexString
 
-# Pilih reader dan kartu
-r = readers()[0]
-connection = r.createConnection()
-connection.connect()
+def select_application(connection, aid):
+    """Select the application with the given AID."""
+    SELECT_AID = [0x00, 0xA4, 0x04, 0x00, len(aid)] + aid
+    response, sw1, sw2 = connection.transmit(SELECT_AID)
+    print(f"SELECT AID Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+    return sw1, sw2
 
-# Perintah SELECT AID
-SELECT_AID = [0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x06, 0x02, 0x10, 0x10]
-
-# Kirim perintah SELECT AID
-response, sw1, sw2 = connection.transmit(SELECT_AID)
-print(f"SELECT AID Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
-
-# Jika respons adalah 61xx, kirim perintah GET RESPONSE untuk mendapatkan data lengkap
-if sw1 == 0x61:
-    GET_RESPONSE = [0x00, 0xC0, 0x00, 0x00, sw2]  # sw2 adalah panjang data yang tersedia
+def get_response(connection, length):
+    """Get the response data if there are more data available."""
+    GET_RESPONSE = [0x00, 0xC0, 0x00, 0x00, length]
     response, sw1, sw2 = connection.transmit(GET_RESPONSE)
     print(f"GET RESPONSE: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+    return sw1, sw2
 
-    # Setelah mendapatkan respons lengkap, lanjutkan ke perintah DELETE jika SELECT berhasil
-    if sw1 == 0x90 and sw2 == 0x00:
-        # Coba format lain untuk DELETE FILE
-        DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, 0x02, 0x3F, 0x00]  # Contoh untuk file ID '3F00'
-        response, sw1, sw2 = connection.transmit(DELETE_FILE_APDU)
-        print(f"DELETE FILE Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+def check_file_support(response):
+    """Check if the card supports file deletion based on the response."""
+    # Analyze response to determine support
+    if b'9F7F' in response:  # Example check, modify based on actual response structure
+        print("Card supports file operations.")
+        return True
     else:
-        print("Failed to SELECT AID, cannot proceed to DELETE.")
-else:
-    print("Failed to SELECT AID, cannot proceed to DELETE.")
+        print("Card does not support file operations.")
+        return False
+
+def delete_file(connection, file_id):
+    """Attempt to delete the file with the given file ID."""
+    DELETE_FILE_APDU = [0x00, 0xE4, 0x00, 0x00, len(file_id)] + file_id
+    response, sw1, sw2 = connection.transmit(DELETE_FILE_APDU)
+    print(f"DELETE FILE Response: {toHexString(response)}, SW1 SW2: {sw1:02X} {sw2:02X}")
+    return sw1, sw2
+
+def main():
+    # Pilih reader dan kartu
+    r = readers()[0]
+    connection = r.createConnection()
+    connection.connect()
+
+    # AID untuk aplikasi yang akan dipilih
+    AID = [0xA0, 0x00, 0x00, 0x06, 0x02, 0x10, 0x10]
+
+    # Pilih aplikasi
+    sw1, sw2 = select_application(connection, AID)
+
+    if sw1 == 0x61:
+        # Dapatkan data tambahan
+        sw1, sw2 = get_response(connection, sw2)
+        if sw1 == 0x90 and sw2 == 0x00:
+            # Cek dukungan file
+            response = connection.transmit([0x00, 0xB2, 0x01, 0x0C, 0x00])[0]
+            if check_file_support(response):
+                # Coba hapus file
+                FILE_ID = [0x3F, 0x00]  # Contoh File ID, sesuaikan dengan file yang ingin dihapus
+                sw1, sw2 = delete_file(connection, FILE_ID)
+                if sw1 == 0x90 and sw2 == 0x00:
+                    print("File deleted successfully.")
+                else:
+                    print("Failed to delete file.")
+            else:
+                print("Card does not support file deletion.")
+        else:
+            print("Failed to GET RESPONSE after SELECT AID.")
+    else:
+        print("Failed to SELECT AID.")
+
+if __name__ == "__main__":
+    main()
